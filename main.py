@@ -1,6 +1,12 @@
 # main.py
 import discord
 from discord.ext import commands
+import os
+from dotenv import load_dotenv
+
+load_dotenv()  # lê o arquivo .env
+TOKEN = os.getenv("MTQ1MDU4NDM4OTY4Njc4ODMwMg.G6_grH.GOh5W6mgbAGYheLs6T4z4fGq09EOl_Rmxv3SNs")  # pega o token secreto
+
 
 # ======================================================
 # INTENTS (permissões que o bot pode "enxergar")
@@ -59,4 +65,4 @@ bot.setup_hook = setup_hook
 # ======================================================
 # INICIA O BOT
 # ======================================================
-bot.run("MTQ1MDU4NDM4OTY4Njc4ODMwMg.G6_grH.GOh5W6mgbAGYheLs6T4z4fGq09EOl_Rmxv3SNs")
+bot.run(TOKEN)
