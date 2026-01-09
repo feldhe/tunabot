@@ -38,21 +38,17 @@ async def on_ready():
 async def setup_hook():
     print("🔁 Carregando cogs...")
 
-    cogs = [
-        "cogs.cog_admin",
-        "cogs.cog_utilidades",
-        "cogs.cog_embeds",
-        "cogs.cog_help",
-        "cogs.cog_server",
-        "cogs.cog_voice"
-    ]
-
-    for cog in cogs:
-        try:
-            await bot.load_extension(cog)
-            print(f"✅ {cog} carregada")
-        except Exception as e:
-            print(f"❌ Erro ao carregar {cog}: {e}")
+    cogs = os.listdir('cogs')
+    for folder in cogs:
+        if not folder.startswith('__'):
+            arqs = os.listdir(f'cogs/{folder}')
+            for cmd in arqs:
+                if cmd.endswith('.py') and not cmd.startswith('__'):
+                    try:
+                        await bot.load_extension(f'cogs.{folder}.{cmd[:-3]}')
+                        print(f"✅ {cmd} carregada")
+                    except Exception as e:
+                        print(f"❌ Erro ao carregar {cmd}: {e}")
 
     # Sincroniza todos os slash commands
     synced = await bot.tree.sync()
@@ -65,4 +61,4 @@ bot.setup_hook = setup_hook
 # ======================================================
 # INICIA O BOT
 # ======================================================
-bot.run(TOKEN)
+bot.run(f'{TOKEN}')
