@@ -1,68 +1,77 @@
-# main.py
+import os
+import logging
 import discord
 from discord.ext import commands
-import os
 from dotenv import load_dotenv
-
-load_dotenv()  # lê o arquivo .env
-TOKEN = os.getenv("TOKEN")  # pega o token secreto
-
+from core.database import db_instance # Importamos a conexão que você criou
 
 # ======================================================
-# INTENTS (permissões que o bot pode "enxergar")
+# CARREGA .ENV E CONFIGURAÇÕES
 # ======================================================
-intents = discord.Intents.default()
-intents.members = True  # Necessário se futuramente quiser detectar entradas de membros
+load_dotenv()
 
-# ======================================================
-# INICIALIZAÇÃO DO BOT
-# ======================================================
-bot = commands.Bot(
-    command_prefix="!",  # Não usado se tudo for slash commands
-    intents=intents
+TOKEN = os.getenv("TOKEN")
+if not TOKEN:
+    raise RuntimeError("TOKEN não encontrado no arquivo .env")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s"
 )
 
 # ======================================================
-# EVENTO: BOT LIGOU
+# INTENTS
 # ======================================================
-@bot.event
-async def on_ready():
-    print(f"🤖 Conectado como {bot.user}")
-    print(f"🌸 Servidores: {len(bot.guilds)}")
-    print(f"🧠 Cogs carregadas: {len(bot.cogs)}")
-
+intents = discord.Intents.default()
+intents.members = True
+intents.message_content = True # Importante para comandos de prefixo (!)
 
 # ======================================================
-# FUNÇÃO DE CARREGAMENTO AUTOMÁTICO DE COGS
+# CLASSE PRINCIPAL DO BOT
 # ======================================================
-async def setup_hook():
-    print("🔁 Carregando cogs...")
+class TunaBot(commands.Bot):
+    def __init__(self):
+        super().__init__(
+            command_prefix="!",
+            intents=intents
+        )
 
-    cogs = [
-        "cogs.cog_admin",
-        "cogs.cog_utilidades",
-        "cogs.cog_embeds",
-        "cogs.cog_help",
-        "cogs.cog_server",
-        "cogs.cog_voice"
-    ]
-
-    for cog in cogs:
+    async def setup_hook(self):
+        # 1. Inicializa o MongoDB
+        await db_instance.connect()
+        
+        # 2. Carrega as Cogs de forma recursiva (dentro de subpastas)
+        await self.load_all_cogs()
+        
+        # 3. Sincroniza comandos Slash
         try:
-            await bot.load_extension(cog)
-            print(f"✅ {cog} carregada")
+            synced = await self.tree.sync()
+            logging.info(f"✅ {len(synced)} slash commands sincronizados")
         except Exception as e:
-            print(f"❌ Erro ao carregar {cog}: {e}")
+            logging.error(f"❌ Erro ao sincronizar comandos: {e}")
 
-    # Sincroniza todos os slash commands
-    synced = await bot.tree.sync()
-    print(f"🌸 {len(synced)} slash commands sincronizados")
+    async def load_all_cogs(self):
+        """Varre a pasta cogs e suas subpastas para carregar os arquivos .py"""
+        for folder in os.listdir("./cogs"):
+            folder_path = os.path.join("./cogs", folder)
+            
+            # Verifica se é uma pasta (ex: admin, voice)
+            if os.path.isdir(folder_path):
+                for file in os.listdir(folder_path):
+                    if file.endswith(".py") and not file.startswith("_"):
+                        # Transforma o caminho no formato 'cogs.pasta.arquivo'
+                        extension = f"cogs.{folder}.{file[:-3]}"
+                        try:
+                            await self.load_extension(extension)
+                            logging.info(f"🧩 Cog carregada: {extension}")
+                        except Exception as e:
+                            logging.error(f"❌ Erro ao carregar {extension}: {e}")
 
-
-# ⚠️ Atribui a função de setup_hook ao bot
-bot.setup_hook = setup_hook
+    async def on_ready(self):
+        logging.info(f"🚀 Conectado como {self.user}")
 
 # ======================================================
-# INICIA O BOT
+# EXECUÇÃO
 # ======================================================
+bot = TunaBot()
 bot.run(TOKEN)
